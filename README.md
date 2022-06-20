@@ -1,654 +1,823 @@
 # 123m
 atm机
-#include<iostream>
-#include<fstream>
-#include<string>
-#include<sstream>
-#include<iomanip>
-#include<vector>
-#include<algorithm>
-#include<Windows.h>
-using namespace std;
-class User;
-//静态变量
-static bool login = false;
-//客户信息容器的创建
-vector<User> Usr;
-vector<User>::iterator it = Usr.begin();
-//创建类
-class Assist
+#include<stdio.h>
+#include<string.h>
+#include<stdlib.h>
+#include<windows.h>
+#include<conio.h>
+#include<time.h>
+#define Y "E:/编程/ATM机/用户数据.txt"
+#define L "E:/编程/ATM机/流水记录.txt"
+
+struct Account
 {
-public:
-	void Save(User u);//存储数据到本地
-	bool JudgeID(string s);//判断身份证号输入是否合法
-	bool JudgePass(string s);//判断密码输入是否合法
-	bool IDIsReg(string s);//判断身份证号是否已经被注册
-	bool JudgeAcc(string s);//判断帐号输入是否合法
-	bool AccIsReg(string s);//判断帐号是否已经被注册
+
+	char Name[20];//姓名 
+	char tel[12];//电话 	
+	char userName[17];//银行账号卡号
+	char passWord[7];//密码 
+	char bank[20];//归属银行 
+	float money;//余额
+
+	struct Account* next; //下一个账户结点的地址 
 };
-class User
+typedef struct Account Account;
+
+struct FlowRecord
 {
-	friend class Assist;
-	friend User Login(Assist a);
-	friend void Change();
-	friend string itos(int i);
-public:
-	User();
-	void Read(string a, string b, string c, string d, int e, string f);//从本地读取用户信息
-	void Register(Assist a);//开户
-	void ShowInform();//显示客户信息
-	void ShowBalance();//查询余额
-	void Transfer();//转账
-	void TakeCash();//取款
-	void SaveCash();//存款
-	void ChangePass(Assist a);//修改密码
-private:
-	string acc;//账户
-	string name;//姓名
-	string ID;//身份证
-	string pass;//密码
-	string record;//存取款记录
-	int money;//余额
-};
-//全局函数:
-void Change()//余额、密码改变后存到本地
+	char username[17];
+	time_t timestamp;//时间戳 ,time_t是一种数据类型 
+	char type[5]; 
+	float money;
+	float serbiceCharge;//手续费 
+	float balance;//交易后的余额 
+	
+	struct FlowRecord * next; 
+}; 
+typedef struct FlowRecord FR;
+
+int loading();;
+int initialization();
+int signin();
+int finduserName(char userName[]);
+int findOtherAccount(char userName[]);
+int immediate();
+int continueTrading();
+int Withdraw_Money();
+int continueTransfer();
+int changepassword();
+int menu();
+
+Account *head=NULL;
+Account *tail=NULL;
+Account *nowAccount=NULL;//当前登录账户 
+Account *otherAccount=NULL;//另一个账户 
+Account *otherhead=NULL;//被吞卡的链表的头节点 
+Account *othertail=NULL;//被吞卡的链表的尾节点 
+Account *othernow=NULL;//遍历吞卡链表的指针
+
+FR *frhead=NULL;
+FR *frtail=NULL;
+FR *frnow=NULL;
+
+const char bank[13]="啥也不会银行";
+
+void tuxiang()
 {
-	fstream os;
-	os.open("D:\\UserList.txt", ios::out);
-	for (vector<User>::iterator out = Usr.begin(); out != Usr.end(); out++)
-	{
-		os << out->name << " " << out->ID << " " << out->acc << " " << out->pass << " " << out->money <<" "<< out->record << endl;
-	}
-	os.close();
+		system("CLS"); 
+		printf("--------------------------------\n");
+		printf("-------");
+		printf("欢迎来到啥也不会银行");
+		printf("-------\n");
+		printf("--------------------------------\n");
 }
-User Login(Assist a)//登录
+
+int loading()
 {
-	User u;
-	ifstream input, judgein;
-	input.open("D:\\UserList.txt", ios::in);
-	judgein.open("D:\\Frozen.txt", ios::in);
-	cout << "----------------------------插卡:请输入以下信息--------------------------" << endl;
-	string InAcc, InPass;
-	string temp;
-	string read;
-	cout << setiosflags(ios::left);
-	cout << setw(52) << "请输入您的帐号:"; cin >> InAcc;
-	while (getline(input, read))//将本地的数据读取到Usr容器中
+	printf("加载中......\n");
+	FILE*fp=fopen(Y,"r");
+	if(fp==NULL)
 	{
-		string name, id, acc, pass, num, record;
-		stringstream strin(read);
-		strin >> name >> id >> acc >> pass >> num>> record;
-		int money = stoi(num);
-		u.Read(name, id, acc, pass, money, record);
-		Usr.push_back(u);
+		Sleep(1000);
+		printf("加载失败\n");
+		return 0;
 	}
-	while (getline(judgein, temp))
-	{
-		if (temp == InAcc)
-		{
-			cout << "您的账户已被锁定，无法登录" << endl << "即将返回主界面" << endl;
-			Sleep(1000);
-			login = false;
-			it = Usr.begin();
-			return *it;
-		}
-	}
-	for (it = Usr.begin(); it != Usr.end(); it++)//遍历容器找出此帐号
-	{
-		if ((*it).acc == InAcc)
-		{
-			cout << setw(52) << "请输入您的密码:"; cin >> InPass;
-			if ((*it).pass == InPass)
-			{
-				cout << "登陆成功" << endl;
-				login = true;
-				return *it;
-			}
-			else
-			{
-				cout << setw(52) << "密码错误!您还有2次输入机会:"; cin >> InPass;
-				if ((*it).pass == InPass)
-				{
-					cout << "登陆成功" << endl;
-					login = true;
-					return *it;
-				}
-				else
-				{
-					cout << setw(52) << "密码错误!您还有1次输入机会:"; cin >> InPass;
-					if ((*it).pass == InPass)
-					{
-						cout << "登陆成功" << endl;
-						login = true;
-						return *it;
-					}
-					else
-					{
-						cout << "您已输错三次密码，您的账户已被锁定" << endl << "即将返回主页面" << endl;
-						Sleep(1000);
-						ofstream output;
-						output.open("D:\\Frozen.txt", ios::app);
-						output << InAcc << endl;
-						login = false;
-						return *it;
-					}
-				}
-			}
-		}
-	}
-	cout << "!错误!不存在此帐号" << endl << "即将返回主页面" << endl;
-	Sleep(1000);
-	input.close();
-	it = Usr.begin();
-	return *it;
-}
-string itos(int i)//将整形转为字符串
-{
-	stringstream s;
-	s << i;
-	return s.str();
-}
-//类Assist的成员函数:
-bool Assist::JudgeID(string s)
-{
-	int t = 0;
-	for (int i = 0; i < s.length()-1; i++)
-	{
-		if (s[i] >= '0' && s[i] <= '9')
-		{
-			t++;
-		}
-	}
-	if ((s[s.length()-1] >= '0' && s[s.length()-1] <= '9') || s[s.length()-1] == 'X')//考虑到身份证可能X结尾
-	{
-		t++;
-	}
-	if (t == 18) { return true; }
-	else { return false; }
-}
-bool Assist::JudgeAcc(string s)
-{
-	if (s.length() != 19) { return false; }
 	else
-	{
-		for (int i = 0; i < 19; i++)
+	{ 
+		while(!feof(fp))//创建链表 
 		{
-			if (s[i] < '0' || s[i]>'9') { return false; }
-		}
-		return true;
-	}
-}
-bool Assist::JudgePass(string s)
-{
-	int t=0;
-	for (int i = 0; i < s.length(); i++)
-	{
-		if (s[i] >= '0' && s[i] <= '9')
-		{
-			t++;
-		}
-	}
-	if (t == 6) { return true; }
-	else { return false; }
-}
-bool Assist::IDIsReg(string s)
-{
-	ifstream input;
-	input.open("D:\\UserList.txt", ios::in);
-	string temp;
-	while (getline(input, temp))
-	{
-		stringstream ss(temp);
-		string temp1, temp2, temp3;
-		ss >> temp1 >> temp2 >> temp3;
-		if (temp2 == s)
-		{
-			return false;
-		}
-	}
-	return true;
-}
-bool Assist::AccIsReg(string s)
-{
-	{
-		ifstream input;
-		input.open("D:\\UserList.txt", ios::in);
-		string temp;
-		while (getline(input, temp))
-		{
-			stringstream ss(temp);
-			string temp1, temp2, temp3;
-			ss >> temp1 >> temp2 >> temp3;
-			if (temp3 == s)
+			Account*newAccount=(Account*)calloc(1,sizeof(Account));
+			newAccount->next=NULL;
+			fscanf(fp,"%s %s %s %s %s %f\n",newAccount->Name,newAccount->tel,newAccount->userName,newAccount->passWord,newAccount->bank,&newAccount->money);
+			if(newAccount==NULL)
 			{
-				return false;
+				printf("加载失败\n");
+				return 0;
 			}
-		}
-		return true;
-	}
-}
-void Assist::Save(User u)
-{
-	fstream outFile;
-	outFile.open("D:\\UserList.txt",ios::app);
-	outFile << u.name<<" "<< u.ID <<" "<< u.acc << " " << u.pass << " " << u.money << endl;
-	outFile.close();
-}
-//类User的成员函数:
-void User::Register(Assist a)
-{
-	string InAcc, InName, InID, InPass1, InPass2;
-	cout << "----------------------------欢迎使用开户功能----------------------------" << endl;
-	cout << setiosflags(ios::left);
-	cout << "请按提示输入信息" << endl;
-	cout << setw(52) << "请输入您的姓名:";
-	cin >> InName;
-	name = InName;
-	while (1)//输入身份证号
-	{
-		cout << setw(52) << "请输入您的身份证号(18位，若有X请使用大写):";
-		while (1)
-		{
-			cin >> InID;
-			if (a.JudgeID(InID))
+			if(newAccount->userName[1]=='\0')
 			{
-				break;
+				free(newAccount);
+				continue;
+			}
+			if(head==NULL)
+			{
+				head=newAccount;
+				tail=newAccount;
+			}
+			else 
+			{
+				tail->next=newAccount;
+				tail=newAccount;
+			}
+		}//创建链表结束
+	fclose(fp);
+	}
+	
+	fp=fopen(L,"r");
+	if(fp==NULL)
+	{
+		Sleep(1000);
+		printf("加载失败\n");
+		return 0;
+	}
+	else 
+	{
+		while(!feof(fp))
+		{
+			FR*flowrecord=(FR*)calloc(1,sizeof(FR));
+			flowrecord->next=NULL;
+			fscanf(fp,"%s %ld %s %f %f %f",flowrecord->username,&flowrecord->timestamp,flowrecord->type,&flowrecord->money,&flowrecord->serbiceCharge,&flowrecord->balance);
+			if(flowrecord==NULL)
+			{
+				printf("加载失败\n");
+				return 0;
+			}
+			
+			if(flowrecord->username[1]=='\0')
+			{
+				free(flowrecord);
+				continue;
+			}
+			
+			if(frhead==NULL)
+			{
+				frhead=flowrecord;
+				frtail=flowrecord;
 			}
 			else
 			{
-				cout << setw(52) << "!错误！请输入合法的身份证号(18位，若有X请使用大写)：";
+				frtail->next=flowrecord;
+				frtail=flowrecord;
 			}
 		}
-		if (a.IDIsReg(InID))//确保用户提供的身份证未被使用
-		{
-			ID = InID;
-			break;
-		}
-		else
-		{
-			cout << "!错误!此身份证已被注册" << endl;
-		}
-	}
-	cout << setw(52) << "请输入您的帐号，为19位数字";
-	while (1)
-	{
-		cin >> InAcc;
-		if (!a.JudgeAcc(InAcc))
-		{
-			cout << "!错误!请确保账户为19位数字";
-		}
-		else
-		{
-			if (a.AccIsReg(InAcc))
-			{
-				acc = InAcc;
-				break;
-			}
-			else
-			{
-				cout << setw(52) << "!错误!此帐号已经被注册,请重新输入:";
-			}
-		}
-	}
-	Flag2:
-	cout << setw(52) << "请输入您的密码，为6位数字:";
-	while (1)//设定密码
-	{
-		cin >> InPass1;
-		if (a.JudgePass(InPass1))
-		{
-			cout << setw(52) << "请再次输入您的密码:";
-			while (1)
-			{
-				cin >> InPass2;
-				if (a.JudgePass(InPass2) && InPass2 == InPass1)
-				{
-					pass = InPass2;
-					break;
-				}
-				else
-				{
-					cout << setw(52) << "！错误!请检查:1.密码是否为6位数字。2.两次输入密码是否相同。" << endl;
-					cout << setw(52) << "请再次输入您的密码:" << endl;
-					goto Flag2;
-				}
-			}
-			break;
-		}
-		else
-		{
-			cout << setw(52) << "!错误!请输入格式符合要求的6位数字密码:";
-		}
-	}
-	cout << "开户成功!您提供的信息如下:" << endl;
-	this->ShowInform();
-	a.Save(*this);
-	cout << "您的信息已被保存至本地" << endl << "即将返回主菜单" << endl;
-	Sleep(1000);
-}
-User::User()
-{
-	money = 10000;
-}
-void User::Read(string a, string b, string c, string d, int e,string f)
-{
-	name = a;
-	ID = b;
-	acc = c;
-	pass = d;
-	money = e;
-	record = f;
-}
-void User::ShowInform()
-{
-	cout << setiosflags(ios::left) << endl;
-	cout << setw(10) << "姓名:" <<  name << endl;
-	cout << setw(10) << "身份证号:" << ID << endl;
-	cout << setw(10) << "账户:" << acc << endl;
-}
-void User::ShowBalance()
-{
-	cout << "---------------------------------余额查询--------------------------------" << endl;
-	cout << "您目前的余额为:" << this->money << endl << "即将返回主菜单"<<endl;
-	Sleep(2000);
-}
-void User::TakeCash()
-{
-	ofstream ofr;
-	ofr.open("D:\\UserList.txt", ios::out);
-	cout << "------------------------------------取款-----------------------------------" << endl;
-	int num = 0;
-	while (1)
-	{
-		cout << setw(52) << "请输入您的取款金额(您单次可取款100000元):"; 
-		cin >> num;
-		if (num < 100 || num % 100 != 0)
-		{
-			cout << "!错误!取款额只能为100的整数倍" << endl;
-		}
-		else
-		{
-			if ((money - num) < 0)
-			{
-				cout << "余额不足!" << endl;
-			}
-			else
-			{
-				if (num > 100000)
-				{
-					cout << "您一次只可取款100000元" << endl;
-				}
-				else
-				{
-					money -= num;
-					it->money -= num;
-					string temp1 = itos(num);
-					string temp2 = "-" + temp1;
-					it->record += temp2;
-					cout << "取款成功!" << endl << "您当前的余额为:" << this->money << "元" << endl;
-					cout << "即将返回主页面";
-					ofr.close();
-					Sleep(1000);
-					break;
-				}
-			}
-		}
-	}
-}
-void User::SaveCash()
-{
-	ofstream ofr;
-	ofr.open("D:\\UserList.txt", ios::out);
-	int num;
-	cout << "------------------------------------存款-----------------------------------" << endl;
-	while (1)
-	{
-		cout << setw(52) << "请输入您的存款金额(您单次可存款100000元):"; cin >> num;
-		if (num < 100 || num % 100 != 0)
-		{
-			cout << "!错误!存款额只能为100的整数倍" << endl;
-		}
-		else if (num > 100000)
-		{
-			cout << "您一次只可存款100000元" << endl;
-		}
-		else
-		{
-			money += num;
-			it->money += num;
-			string temp1 = itos(num);
-			string temp2 = "+" + temp1;
-			it->record += temp2;
-			cout << "存款成功!" << endl << "您当前的余额为:" << this->money << "元" << endl;
-			cout << "即将返回主页面";
-			Sleep(1000);
-			ofr.close();
-			break;
-		}
-	}
-}
-void User::Transfer()
-{
-	string InAcc1, InAcc2, temp; int num; bool out = false;
-	cout << "------------------------------------转账-----------------------------------" << endl;
-	ifstream input;
-	input.open("D:\\UserList.txt", ios::in);
-	cout << setw(52)<<"请输入需要转入的帐号:";
-	cin >> InAcc1;
-	for (it=Usr.begin(); it != Usr.end(); it++)
-	{
-		if (this->acc == InAcc1)
-		{
-			out = true;
-			cout << "!错误!您不可以给自己转账" << endl << "即将返回主页面";
-			Sleep(1000);
-			break;
-		}
-		else
-		{
-			if (it->acc == InAcc1)
-			{
-				out = true;
-				cout << setw(52) << "请再次输入需要转入的帐号:";
-				while (1)
-				{
-					cin >> InAcc2;
-					if (InAcc1 == InAcc2)
-					{
-						cout << setw(52) << "请输入您的转账金额(您单次可转账100000元):"; cin >> num;
-						if ((money - num) < 0)
-						{
-							cout << "余额不足!" << endl;
-							goto Flag;
-						}
-						else if (num > 100000)
-						{
-							cout << "您一次只可取款100000元" << endl;
-							goto Flag;
-						}
-						else
-						{
-							money -= num;
-							it->money += num;
-							string temp1 = itos(num);
-							it->record += "+" + temp1;
-							cout << "转账成功!" << endl << "您当前的余额为:" << this->money << "元" << endl;
-							cout << "即将返回主页面";
-							Sleep(1000);
-							for (it = Usr.begin(); it != Usr.end(); it++)
-							{
-								if (it->acc == this->acc)
-								{
-									it->money -= num;
-									it->record = it->record+"-" + temp1;
-								}
-							}
-							goto Flag;
-						}
-					}
-					else
-					{
-						cout << setw(52) << "!错误!请检查两次输入帐号是否一致";
-					}
-				}
-			}
-		}
-	}
-	Flag:
-	if (out == false)
-	{
-		cout << "没有此帐号" << endl << "即将返回主界面" << endl;
+		fclose(fp);
+
+		printf("加载成功\n");
 		Sleep(1000);
 	}
+	return 1;
 }
-void User::ChangePass(Assist a)
+
+int initialization()//初始化界面 
 {
-	string cPass1,cPass2;
-	cout << setiosflags(ios::left);
-	cout << "----------------------------------修改密码---------------------------------" << endl;
-	cout << setw(52) << "请输入修改后的密码,为6位数字:";
-	while (1)
+	char a;
+	printf("1、登录\t\t\t\n");
+	printf("--------------------------------\n");
+	printf("2、开户\n");
+	printf("--------------------------------\n");
+	printf("3、退出系统\t\t\n");
+	printf("--------------------------------\n");
+	while(1)
 	{
-		cin >> cPass1;
-		if (a.JudgePass(cPass1))
+		printf("请选择您要办理的业务:\n");
+		a=getche();
+		putchar('\n');
+		if(a=='1')
 		{
-			cout << setw(52) << "请再次输入您的密码:";
-			while (1)
-			{
-				cin >> cPass2;
-				if (a.JudgePass(cPass2) && cPass2== cPass1)
-				{
-					pass = cPass1;
-					it->pass = cPass1;
-					break;
-				}
-				else
-				{
-					cout << setw(52) << "！错误!请检查:1.密码是否为6位数字。2.两次输入密码是否相同。" << endl;
-					cout << setw(52) << "请再次输入您的密码:";
-				}
-			}
-			break;
+			return 1;
 		}
-		else
+		else if(a=='2')
 		{
-			cout << setw(52) << "!错误!请输入格式符合要求的6位数字密码:";
+			return 2;
+		}
+		else if(a=='3')
+		{
+			return 0;
+		}
+		else 
+		{
+			printf("您的输入有误，请重新输入\n");
 		}
 	}
-	cout << "修改成功" << endl << "即将返回主页面" << endl;
-	Sleep(1000);
 }
-//主函数、主体功能
-int main()
+
+int  finduserName(char userName[])
 {
-	User usr;
-	Assist a;
-	string c, d, e;
-	while (1)
+	char c;
+	othernow=otherhead;
+	while(othernow !=NULL)
 	{
-		cout << setiosflags(ios::left);
-		cout << "-----------------欢迎使用自助ATM机，请选择您的服务--------------------" << endl;
-		cout << "    " << "1.开户" << endl
-			<< "    " << "2.插卡" << endl
-			<< "    " << "3.结束服务" << endl;
-		cout << setw(52)<<"请在此输入您的选择:";
-		cin >> d;
-		if (d != "1" && d != "2" && d != "3")//输入异常处理
+		if(strcmp(userName,othernow->userName)==0)
 		{
-			cout << "请输入有效选择";
-			Sleep(1000);
-			system("cls");
+			printf("检测到您输入的卡号已被吞，是否进行取回?\n");
+			while(1)
+			{
+				printf("1、取回\n2、不取回\n");
+				c=getche();
+				putchar('\n');
+				if( c=='1' )
+				{
+					return 2;
+				}
+				else if(c=='2')
+				{
+					return 3;
+				}
+				else 
+				{
+					printf("您的输入有误，请重新输入\n");
+					continue;
+				}
+			}
 		}
 		else
 		{
-			system("cls");
-			if (d == "1")
-			{
-				usr.Register(a);
-				system("cls");
-			}
-			else if (d == "2")
-			{
-				User ulogin = Login(a);
-				system("cls");
-				if (login)
-				{
-					while (1)
-					{
-						cout << "--------------欢迎使用自助ATM机，请在下列菜单中选择您的服务----------" << endl;
-						cout << "    " << "1.查询余额" << endl
-							<< "    " << "2.存取款" << endl
-							<< "    " << "3.转账" << endl
-							<< "    " << "4.修改密码" << endl
-							<< "    " << "5.退卡" << endl
-							<< setw(52)<<"请在此输入您的选择:";
-						cin >> c;
-						system("cls");
-						if (c != "1" && c != "2" && c != "3" && c != "4"&&c!="5")
-						{
-							cout << "请输入有效选择";
-							Sleep(1000);
-							system("cls");
-						}
-						if (c == "1")
-						{
-							ulogin.ShowBalance();
-							system("cls");
-						}
-						else if (c == "2")
-						{
-                            cout << "----------------------------------存取款----------------------------------" << endl;
-							cout << "请选择:" << endl;
-							cout << "    1.存款" << endl << "    2.取款" << endl;
-							cout << setw(52) << "请输入您的选择:"; cin >> e;
-							if (e != "1" && e != "2")
-							{
-								cout << "请输入有效选择";
-								Sleep(1000);
-								system("cls");
-							}
-							else if (e == "1")
-							{
-								system("cls");
-								ulogin.SaveCash();
-								Change();
-							}
-							else
-							{
-								system("cls");
-								ulogin.TakeCash();
-								Change();
-							}
-							Change();
-							system("cls");
-						}
-						else if (c == "3")
-						{
-							ulogin.Transfer();
-							Change();
-							system("cls");
-						}
-						else if (c == "4")
-						{
-							ulogin.ChangePass(a);
-							Change();
-							system("cls");
-						}
-						else if (c == "5")
-						{
-							cout << "退卡成功" << endl;
-							break;
-						}
-					}
-				}
-			}
-			else if (d == "3")
-			{
-				system("cls");
-				cout << "感谢您的使用" << endl;
-				break;
-			}
+			othernow=othernow->next;
+		}
+	}
+	
+	nowAccount=head;
+	while(nowAccount!=NULL)
+	{
+		if(strcmp(userName,nowAccount->userName)==0)
+		{
+			return 1;
+		}
+		else 
+		{
+			nowAccount=nowAccount->next;
 		}
 	}
 	return 0;
+}
+
+void dispose(char userName[])//处理吞卡 
+{
+	Account *pothernow=NULL;//pothernow用于遍历吞卡链表 
+	
+	othernow=otherhead;//othernow用于在吞卡链表中寻找被吞卡 
+	while(othernow!=NULL)
+	{
+		if(strcmp(othernow->userName,userName)==0)
+		{
+			if(head==NULL)//将当前节点移动至常规链表 
+			{
+				head=othernow;
+				tail=othernow;
+			}
+			else 
+			{
+				tail->next=othernow;
+				tail=othernow;
+			}
+			break;
+		}
+		else 
+		{
+			othernow=othernow->next;
+		}
+	}
+	
+	pothernow=otherhead;//删除吞卡链表中的该节点 
+	if(othernow==otherhead)
+	{
+		if(otherhead->next==NULL)
+		{
+			otherhead=NULL;
+			othertail=NULL;
+		}
+		else 
+		{
+			otherhead=otherhead->next;
+		}
+	}
+	else if(otherhead!=othertail&&othernow==othertail)
+	{
+		pothernow=otherhead;
+		while(pothernow!=NULL)
+		{
+			if(strcmp((pothernow->next)->userName,othertail->userName)==0)
+			{
+				pothernow->next=NULL;
+				othertail=pothernow;
+				break;
+			}
+			else 
+			{
+				pothernow=pothernow->next;
+			}
+		}
+	}
+	else 
+	{
+		pothernow=otherhead; 
+		while(pothernow!=NULL)
+		{
+			if(strcmp((pothernow->next)->userName,pothernow->userName)==0)
+			{
+				pothernow->next=(pothernow->next)->next;
+				(pothernow->next)->next=NULL;
+				break;
+			}
+			else 
+			{
+				pothernow=pothernow->next;
+			}
+		}
+	}
+	othernow->next=NULL;
+}
+
+
+int signin()//登录 
+{
+	Account x;
+	int a;
+	char nowuserName_[100];
+	while(1)//判断卡号是否存在 
+	{
+		printf("请输入银行卡号:\n");
+		scanf("%s",nowuserName_);
+		if(strlen(nowuserName_)!=16)
+		{
+			printf("请输入正确的银行卡号\n");
+			continue;
+		}
+		else
+		{
+			strcpy(x.userName,nowuserName_);
+			int i=finduserName(x.userName);
+			if(i==1)
+			{
+				break;
+			}
+			else if(i=2)//取回被吞卡 
+			{
+				dispose(x.userName);
+				printf("处理成功\n");
+				return 1;
+			}
+			else if(i=3)//不取回
+			{
+				continue;
+				
+			} 
+			else 
+			{
+				printf("请输入正确的银行卡号\n");
+			}
+		}
+	}
+	for(a=0;a<3;a++)//判断密码是否正确 ,a代表密码已经错误的次数 
+	{
+		printf("请输入密码\n");
+		for(int i=0;i<6;i++)
+		{
+			x.passWord[i]=getch();
+			putchar('*');
+		}
+		if(strcmp(nowAccount->passWord,x.passWord)==0) 
+		{
+			putchar('\n');
+			printf("登录成功\n");
+			printf("正在进入菜单...\n");
+			Sleep(1000);
+			return 2;
+		}
+		else
+		{
+			printf("\n您的密码输入错误，请重新输入\n");
+		}
+	}
+	if(a==3)
+	{
+		printf("密码连续输错三次，请到柜台人工处理\n");
+		
+		othernow=nowAccount;//将当前节点移动至吞卡链表 
+		if(otherhead==NULL)
+		{
+			otherhead=othernow;
+			othertail=othernow;
+		}
+		else 
+		{
+			othertail->next=othernow;
+			othertail=othernow;
+		}
+		
+		nowAccount=head;//删除原链表中的该节点 
+		if(othernow==head)
+		{
+			if(head->next==NULL)
+			{
+				head=NULL;
+				tail=NULL;
+			}
+			else 
+			{
+				head=head->next;
+			}
+		}
+		else if(head!=tail&&othernow==tail)
+		{
+			while(nowAccount!=NULL)
+			{
+				if(strcmp((nowAccount->next)->userName,tail->userName)==0)
+				{
+					nowAccount->next=NULL;
+					tail=nowAccount;
+					break;
+				}
+				else 
+				{
+					nowAccount=nowAccount->next;
+				}
+			}
+		}
+		else 
+		{
+			while(nowAccount!=NULL)
+			{
+				if(strcmp((nowAccount->next)->userName,othernow->userName)==0)
+				{
+					nowAccount->next=(nowAccount->next)->next;
+					(nowAccount->next)->next=NULL;
+					break;
+				}
+				else 
+				{
+					nowAccount=nowAccount->next;
+				}
+			}
+		}
+		othernow->next=NULL;
+		char x;
+		while(1)
+		{
+			printf("退出系统请按0,返回上一级请按1\n");
+			x=getche();
+			putchar('\n');
+			if(x=='0')
+			{
+				return 0;
+			}
+			else if(x=='1')
+			{
+				return 1;
+			}
+			else
+			{
+				printf("您的输入有误，请重新输入\n");
+			}
+		}
+	}
+}
+
+void OpenAccount()//开户
+{
+	//开户信息:姓名，电话，账号，密码，余额(初始化为0) 
+
+	Account*pNewAccount=(Account*)malloc(sizeof(Account));
+	pNewAccount->next=NULL;
+	if(head==NULL)
+	{
+		head=pNewAccount;
+		tail=pNewAccount;
+	}
+	else 
+	{
+		tail->next=pNewAccount;
+		tail=pNewAccount;
+	}
+	char w;
+	while(1)
+	{
+		system("cls");
+		printf("1、开心岛银行\n");
+		printf("2、取款机会咬人银行\n"); 
+		printf("3、没有利润银行\n"); 
+		printf("4、卷钱跑路银行\n"); 
+		printf("5、不会编程银行\n");
+		printf("6、啥也不会银行\n");
+		printf("请选择您要进行开户的银行\n");
+		w=getche();
+		putchar('\n');
+		switch(w)
+		{
+			case '1':strcpy(pNewAccount->bank,"开心岛银行");break;
+			case '2':strcpy(pNewAccount->bank,"取款机会咬人银行");break;
+			case '3':strcpy(pNewAccount->bank,"没有利润银行");break;
+			case '4':strcpy(pNewAccount->bank,"卷钱跑路银行");break;
+			case '5':strcpy(pNewAccount->bank,"不会编程银行");break;
+			case '6':strcpy(pNewAccount->bank,"啥也不会银行");break;
+			default :printf("您的输入有误，请重新输入\n");
+					Sleep(1000);
+						break;
+		}
+		if(w>='1'&&w<='6')
+			break;  
+	}
+	
+	printf("请输入您的姓名:\n");
+	scanf("%s", pNewAccount->Name);
+	
+	char tel_[20];
+	while(1)
+	{
+		printf("请输入您的电话号码\n");
+		scanf("%s",tel_);
+		if(strlen(tel_)==11)
+		{
+			strcpy(pNewAccount->tel,tel_);
+			break;
+		}
+		else 
+		{
+			printf("您的输入有误，请重新输入\n");
+		}
+	}
+	
+	char Password_1[7];
+	char Password_2[7];
+	while(1)//设置密码 
+	{
+		printf("请设置您的银行卡密码\n");
+		for(int i=0;i<6;i++)
+		{
+			Password_1[i]=getch();
+			putchar('*');
+		}
+		putchar('\n');
+		printf("请再次输入您的密码\n");
+		for(int i=0;i<6;i++)
+		{
+			Password_2[i]=getch();
+			putchar('*'); 
+		}
+		putchar('\n');
+		if(strcmp(Password_1,Password_2)==0)
+		{
+			printf("密码设置成功\n");
+			strcpy(pNewAccount->passWord,Password_1);
+				break;
+		}
+		else 
+		{
+			printf("您两次输入的密码不一致，请重新输入\n");
+		}
+	}
+	
+	char userName_[17]={0};
+	int a[17];
+	srand( (unsigned)time(0) );
+	for(int i=0;i<16;i++)//生成随机账号 
+	{
+		if(i==0)
+		{
+			a[i]=rand()%9+1;
+			userName_[i]=a[i]+48;
+			continue;
+		}
+		a[i]=rand()%10;
+		userName_[i]=a[i]+48;
+	}
+	
+	nowAccount=head;
+	while(nowAccount!=NULL)//检查随机生成的账号是否存在
+	{
+		if(strcmp(nowAccount->userName,userName_)==0)
+		{
+			srand( (unsigned)time(0) );
+			for(int i=0;i<16;i++)//重新生成随机账号 
+			{
+				if(i==0)
+				{
+					a[i]=rand()%9+1;
+					userName_[i]=a[i]+48;
+					continue;
+				}
+				a[i]=rand()%10;
+				userName_[i]=a[i]+48;
+			}
+		}
+		else 
+		{
+			nowAccount=nowAccount->next;
+		}
+	}
+	strcpy(pNewAccount->userName,userName_);
+	printf("您的账号为:%s\n",pNewAccount->userName);
+	
+	pNewAccount->money=0.00;
+	
+	FILE*fp=fopen(Y,"a");
+	fprintf(fp,"%s\t%s\t%s\t%s\t%s\t%.2f\n",pNewAccount->Name,pNewAccount->tel,pNewAccount->userName,pNewAccount->passWord,pNewAccount->bank,pNewAccount->money);
+	fclose(fp);
+}
+
+int immediate()
+{
+	char a;
+	while(1)
+	{
+		printf("是否直接登录?\n");
+		printf("1、是\t\t2、否\n");
+		a=getche();
+		putchar('\n');
+		if(a=='1')
+		{
+			nowAccount=tail;
+			return 1;
+		}
+		else if(a=='2')
+		{
+			return 0;
+		}
+		else
+		{
+			printf("您的输入有误，请重新输入\n");
+		}
+	}
+}
+
+void saveMoney()//存钱 
+{
+	float money;
+	char a[100];
+	char b;
+	int d,c;
+	FILE*fp;
+	Account *paccount;
+	while(1)
+	{
+		system("cls");
+		printf("请输入您要存放的数额\n");
+		scanf("%f",&money)	||	scanf("%s",a);
+		d=((int)(money*1000000))%10000;
+		if(d>0&&d<10000 || money==0.0)
+		{
+			printf("您的输入有误，请重新输入\n");
+			continue;
+		}
+		else 
+		{	
+			FR*frpa=(FR*)calloc(1,sizeof(FR));
+			frpa->next=NULL;
+			nowAccount->money+=money;
+			frpa->serbiceCharge=0.00;
+			frpa->timestamp=time(0);
+			frpa->balance=nowAccount->money;
+			strcpy(frpa->username,nowAccount->userName);
+			strcpy(frpa->type,"存款");
+			frpa->money=money;
+			
+			if(frhead==NULL)
+			{
+				frhead=frpa;
+				frtail=frpa;
+			}
+			else 
+			{
+				frtail->next=frpa;
+				frtail=frpa;
+			}
+			
+			fp=fopen(L,"w");
+			frnow=frhead;
+			while(frnow!=NULL)
+			{
+				fprintf(fp,"%s\t%ld\t%s\t%+.2f\t%+.2f\t%.2f\n",frnow->username,frnow->timestamp,frnow->type,frnow->money,frpa->serbiceCharge,frnow->balance);
+				frnow=frnow->next;
+			}
+			fclose(fp);
+			
+			fp=fopen(Y,"w");
+			paccount=head;
+			while(paccount!=NULL)
+			{
+				fprintf(fp,"%s\t%s\t%s\t%s\t%s\t%.2f\n",paccount->Name,paccount->tel,paccount->userName,paccount->passWord,paccount->bank,paccount->money);
+				paccount=paccount->next;
+			}
+			fclose(fp);
+			break;	
+		}				
+	}	
+}
+
+int continueSave()
+{
+	char i;
+	printf("交易成功，是否继续交易?\n");
+	printf("1、是\t\t2、否\t\t3、退出登录\n");
+	while(1)
+	{
+		i=getche();
+		putchar('\n');
+		if(i=='1')
+		{
+			return 1;
+		} 
+		else if(i=='2')
+		{
+			return 2;
+		}
+		else if(i=='3')
+		{
+			return 0;
+		}
+		else
+		{
+			printf("您的输入有误，请重新输入\n");
+			continue;
+		}
+	}	
+}
+
+int Withdraw_Money()//取钱 
+{
+	float money;
+	char b;
+	int d;
+	char a[100],c[100];
+	FILE*fp;
+	Account *paccount;
+	while(1)
+	{
+		system("cls");
+		printf("请输入您要取出的人民币金额\n");
+		scanf("%f",&money)	||	scanf("%s",a);
+		d=(int)(money*1000000)%10000;
+		if(d>0&&d<10000 || money==0.0)
+		{
+			printf("您的输入有误，请重新输入\n");
+			continue;
+		}
+		else if(strcmp(nowAccount->bank,bank)!=0)
+		{
+			if(nowAccount->money<(money+money*0.02)){}
+			else
+				break;
+		}
+		else 
+		{
+			if(nowAccount->money<money){}
+			else
+				break;
+		}
+		printf("您的余额不足");
+		printf("(余额:%.2f)\n",nowAccount->money);
+		printf("是否继续取钱?\n");
+		printf("1、是\t\t2、否\n");			
+		while(1)
+		{
+			b=getche();
+			if(b=='1')
+			{
+				break;
+			}
+			else if(b=='2')
+				return 0;
+			else 
+			{
+				printf("你的输入有误，请重新输入\n");
+				continue;
+			}
+		}		
+	}	
+			
+	FR*frpa=(FR*)calloc(1,sizeof(FR));
+	frpa->next=NULL;			
+	if(strcmp(nowAccount->bank,bank)!=0)
+	{
+		nowAccount->money-=(money+money*0.02);
+		frpa->serbiceCharge=0-money*0.02;				
+	}		
+	else 
+	{
+		nowAccount->money-=money;
+		frpa->serbiceCharge=0.00;
+	}
+	frpa->balance=nowAccount->money;
+	frpa->timestamp=time(NULL);
+	strcpy(frpa->type,"取款");
+	strcpy(frpa->username,nowAccount->userName);
+	frpa->money=0-money;
+	if(frhead==NULL)
+	{
+		frhead=frpa;
+		frtail=frpa;
+	}
+	else
+	{
+		frtail->next=frpa;
+		frtail=frpa;
+	}
+	fp=fopen(L,"w");
+	frnow=frhead;
+	while(frnow!=NULL)
+	{
+		fprintf(fp,"%s\t%ld\t%s\t%+.2f\t%+.2f\t%.2f\n",frnow->username,frnow->timestamp,frnow->type,frnow->money,frnow->serbiceCharge,frnow->balance);
+		frnow=frnow->next;
+	}
+	fclose(fp);
+	
+	fp=fopen(Y,"w");
+	paccount=head;
+	while(paccount!=NULL)
+	{
+		fprintf(fp,"%s\t%s\t%s\t%s\t%s\t%.2f\n",paccount->Name,paccount->tel,paccount->userName,paccount->passWord,paccount->bank,paccount->money);
+		paccount=paccount->next;
+	}
+	fclose(fp);
+	return 1;			
 }
